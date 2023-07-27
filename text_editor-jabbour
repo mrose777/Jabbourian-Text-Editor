@@ -174,3 +174,4 @@ text.bind("<KeyRelease>", highlight_incorrect_words)
 
 root.mainloop()
 
+#Code Written By Mia Thompson 
