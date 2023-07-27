@@ -1,0 +1,156 @@
+import tkinter as tk
+from tkinter import filedialog, simpledialog, messagebox
+import enchant
+import string
+import re
+import nltk
+
+nltk.download('punkt')
+nltk.download('averaged_perceptron_tagger')
+
+from nltk.tokenize import word_tokenize
+
+# Define the enchant dictionary
+enchant_dict = enchant.Dict("en_US")
+
+previous_word = ""
+
+def open_file():
+    file_path = filedialog.askopenfilename()
+    if file_path:
+        with open(file_path, 'r') as file:
+            text.delete('1.0', tk.END)
+            text.insert(tk.END, file.read())
+        highlight_incorrect_words()
+
+def save_file():
+    file_path = filedialog.asksaveasfilename()
+    if file_path:
+        with open(file_path, 'w') as file:
+            file.write(text.get('1.0', tk.END))
+
+def clear_text():
+    text.delete('1.0', tk.END)
+
+def cut_text():
+    text.clipboard_clear()
+    text.clipboard_append(text.selection_get())
+    text.delete("sel.first", "sel.last")
+
+def copy_text():
+    text.clipboard_clear()
+    text.clipboard_append(text.selection_get())
+
+def paste_text():
+    try:
+        text.insert(tk.INSERT, text.clipboard_get())
+        highlight_incorrect_words()
+    except tk.TclError:
+        pass
+
+def undo_text():
+    try:
+        text.edit_undo()
+    except tk.TclError:
+        pass
+
+def redo_text():
+    try:
+        text.edit_redo()
+    except tk.TclError:
+        pass
+
+def find_text():
+    find_str = simpledialog.askstring("Find", "Enter text to find:")
+    if find_str:
+        start_pos = text.search(find_str, "1.0", tk.END)
+        if start_pos:
+            end_pos = f"{start_pos}+{len(find_str)}c"
+            text.tag_add(tk.SEL, start_pos, end_pos)
+            text.mark_set(tk.INSERT, end_pos)
+            text.see(tk.INSERT)
+        else:
+            messagebox.showinfo("Find", f"'{find_str}' not found.")
+
+def replace_text():
+    find_str = simpledialog.askstring("Find", "Enter text to find:")
+    if find_str:
+        replace_str = simpledialog.askstring("Replace", "Enter text to replace:")
+        if replace_str:
+            start_pos = text.search(find_str, "1.0", tk.END)
+            if start_pos:
+                end_pos = f"{start_pos}+{len(find_str)}c"
+                text.delete(start_pos, end_pos)
+                text.insert(start_pos, replace_str)
+                highlight_incorrect_words()
+                replace_text()
+
+def highlight_incorrect_words():
+    global previous_word
+    text.tag_configure("incorrect", foreground="red")  # Set the text color for incorrect words
+    text.tag_configure("warning", foreground="orange")
+    # Get all the lines in the Text widget
+    lines = text.get("1.0", tk.END).splitlines()
+
+    for line_number, line in enumerate(lines, 1):
+        # Use regular expression to extract words from the line
+        words = re.findall(r'\b\w+\b', line)
+
+        for word in words:
+            is_correct = enchant_dict.check(word)
+            start_indices = [m.start() for m in re.finditer(r"\b" + re.escape(word) + r"\b", line)]
+
+            for start_index in start_indices:
+                end_index = f"{line_number}.{start_index + len(word)}"
+                if word.lower() in {
+                    "be", "have", "can", "do", "could", "would", "should",
+                    "always", "never", "all", "none", "is","are"
+                } or word in {"'", ";", ":", "!", "?", "(", ")", "[", "]"}:
+                    text.tag_add("incorrect", f"{line_number}.{start_index}", end_index)
+                elif start_index == 0 and word.lower() == "and":
+                    text.tag_add("incorrect", f"{line_number}.{start_index}", end_index)
+                elif word.lower().endswith("ing"):
+                    text.tag_add("incorrect", f"{line_number}.{start_index}", end_index)
+                elif word.lower() in {"be", "have", "can", "do"}:
+                    text.tag_add("incorrect", f"{line_number}.{start_index}", end_index)
+                elif word.lower() in {"few","some", "many", "no", "any", "most", "zero","number","amount"}:
+                    text.tag_add("warning", f"{line_number}.{start_index}", end_index)
+
+    previous_word = text.get("insert linestart", "insert").strip()
+
+    
+root = tk.Tk()
+root.title("Jabbourian Text Editor")
+
+text = tk.Text(root, wrap=tk.WORD, undo=True)
+text.pack(expand=True, fill='both')
+
+menu_bar = tk.Menu(root)
+root.config(menu=menu_bar)
+
+file_menu = tk.Menu(menu_bar, tearoff=False)
+menu_bar.add_cascade(label="File", menu=file_menu)
+file_menu.add_command(label="Open", command=open_file)
+file_menu.add_command(label="Save", command=save_file)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.quit)
+
+edit_menu = tk.Menu(menu_bar, tearoff=False)
+menu_bar.add_cascade(label="Edit", menu=edit_menu)
+edit_menu.add_command(label="Undo", command=undo_text)
+edit_menu.add_command(label="Redo", command=redo_text)
+edit_menu.add_separator()
+edit_menu.add_command(label="Cut", command=cut_text)
+edit_menu.add_command(label="Copy", command=copy_text)
+edit_menu.add_command(label="Paste", command=paste_text)
+edit_menu.add_separator()
+edit_menu.add_command(label="Clear", command=clear_text)
+edit_menu.add_separator()
+edit_menu.add_command(label="Find", command=find_text)
+edit_menu.add_command(label="Replace", command=replace_text)
+
+# Replace "text_widget" with the name of your Text widget
+text.bind("<KeyRelease>", lambda event: highlight_incorrect_words())
+
+root.mainloop()
+
