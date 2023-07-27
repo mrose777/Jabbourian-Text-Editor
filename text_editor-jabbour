@@ -42,9 +42,11 @@ def copy_text():
 def paste_text():
     try:
         text.insert(tk.INSERT, text.clipboard_get())
-        highlight_incorrect_words()
+        # Pass a dummy event argument to highlight_incorrect_words
+        highlight_incorrect_words(None)
     except tk.TclError:
         pass
+
 
 def undo_text():
     try:
@@ -83,13 +85,18 @@ def replace_text():
                 highlight_incorrect_words()
                 replace_text()
 
-def highlight_incorrect_words(event):
+def highlight_incorrect_words(event=None):
     global previous_word
-    text = event.widget
-    text.tag_configure("incorrect", foreground="red")  # Set the text color for incorrect words
-    text.tag_configure("warning", foreground="orange")
-    text.tag_remove("incorrect", "1.0", tk.END)  # Remove previous incorrect word color
-    text.tag_remove("warning", "1.0", tk.END)
+    # If event is None, use the global text variable
+    if event is None:
+        text_widget = text
+    else:
+        text_widget = event.widget
+
+    text_widget.tag_configure("incorrect", foreground="red")  # Set the text color for incorrect words
+    text_widget.tag_configure("warning", foreground="orange")
+    text_widget.tag_remove("incorrect", "1.0", tk.END)  # Remove previous incorrect word color
+    text_widget.tag_remove("warning", "1.0", tk.END)
 
     # Tokenize the entire text content
     words = word_tokenize(text.get("1.0", tk.END))
@@ -107,7 +114,7 @@ def highlight_incorrect_words(event):
             end_index = f"{start_index}+{len(word)}c"
             text.tag_add("incorrect", start_index, end_index)
             start_index = end_index
-        elif pos == "RB" and word.endswith("ly"):
+        elif (pos == "RB" and word.endswith("ly")) or (pos == "JJ" and word.lower().endswith("ly")):
             start_index = text.search(word, start_index, stopindex=tk.END)
             if not start_index:
                 break
@@ -174,4 +181,3 @@ text.bind("<KeyRelease>", highlight_incorrect_words)
 
 root.mainloop()
 
-#Code Written By Mia Thompson 
