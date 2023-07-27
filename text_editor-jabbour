@@ -154,3 +154,4 @@ text.bind("<KeyRelease>", lambda event: highlight_incorrect_words())
 
 root.mainloop()
 
+# Created by Mia Thompson 
